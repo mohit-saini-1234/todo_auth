@@ -51,3 +51,14 @@ def manager_required(fn):
         else:
          return jsonify(msg='access denied'), 403
     return wrapper
+
+def admin_required(fnn):
+    @wraps(fnn)
+    def wrapper(*args, **kwargs):
+        verify_jwt_in_request()
+        user = get_current_user()
+        if user["role"] == "admin":
+            return fnn(*args, **kwargs)
+        else:
+         return jsonify(msg='access denied'), 403
+    return wrapper

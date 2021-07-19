@@ -14,6 +14,8 @@ import random
 from app import mongo
 from app import token
 from app.token import manager_required 
+from app.token import admin_required
+
 import jwt
 from app.util import serialize_doc
 from bson import json_util
@@ -229,41 +231,86 @@ def set_tempPass():
 
 
 
-@bp.route("/update/<string:id>", methods=['PUT'])
+#_route for update role #manager login
+@bp.route("/update_role/<string:id>", methods=['PUT'])
 @manager_required
-def update_todo(id):
+def up_managerTodo(id):
+    role = request.json.get("role", "user")
+    if not request.json:
+          abort(500)
+    if  role == "admin":   
+        return jsonify("manager can't assign anyone a admin ")
+    if  role == "manager":   
+        return jsonify("Only admin can assign a Manager ")
+    is_user = mongo.db.Users.find_one({"_id": ObjectId(id)})
 
-   if not request.json:
-      abort(500)
+    if is_user["role"] == "admin" :
+        return jsonify("manager  can't  chnage Admin's role "), 400 
+    if is_user["role"] == "manager":
+        return jsonify("Only admin can assign a Manager")
 
-   role = request.json.get("role", "user")
-   username = request.json.get("username", "")
+    update_json = {}
+    if role is not None:
+        update_json["role"] = role
 
-   if username is None:
-      return jsonify(message="Invalid Request"), 500
-
-   update_json = {}
-   if role is not None:
-      update_json["role"] = role
-
-   if username is not None:
-      update_json["username"] = username
-
-
-   # match with Object ID
-   ret = mongo.db.Users.update({
-      "_id": ObjectId(id)
-   }, {
+    ret = mongo.db.Users.update({
+        "_id": ObjectId(id)
+    }, {
         "$set": update_json
-   }, upsert=False)
-   return jsonify(str(ret))
+    }, upsert=False)
+    return jsonify(str(ret))
 
-@bp.route("/del_todo/<string:id>", methods=["DELETE"])
+#_route for del user #manager login
+@bp.route("//<string:id>", methods=["DELETE"])
 @manager_required
-def delete_todo(id):
+def del_Manager(id):
+    is_user = mongo.db.Users.find_one({"_id":ObjectId(id)})
+    if is_user["role"] == "admin" or is_user["role"] == "manager":
+        return " manager can't delete admin or manager"
 
-   ret = mongo.db.tasks.remove({
+    ret = mongo.db.Users.remove({
         "_id" : ObjectId(id)
     })
 
-   return jsonify(str(ret))  
+    return jsonify(str(ret))  
+
+#route for update role _#admin_login
+@bp.route("/admin_update_role/<string:id>", methods=['PUT'])
+@admin_required
+def up_AdminTodo(id):
+    role = request.json.get("role", "user")
+    if not request.json:
+          abort(500)
+    if role == "admin":   
+        return "admin can't change a admin "
+    is_user = mongo.db.Users.find_one({"_id": ObjectId(id)})
+    if is_user["role"] == "admin":
+        return "admin can not change admins role"
+
+    update_json = {}
+    if role is not None:
+        update_json["role"] = role
+
+
+    # match with Object ID
+    ret = mongo.db.Users.update({
+        "_id": ObjectId(id)
+    }, {
+        "$set": update_json
+    }, upsert=False)
+    return jsonify(str(ret))
+
+#_route for del user #admin login
+@bp.route("/admin_del/<string:id>", methods=["DELETE"])
+@admin_required
+def del_Admin(id):
+
+    is_user = mongo.db.Users.find_one({"_id":ObjectId(id)})
+    if is_user["role"] == "admin" :
+        return "admin can't delete admin"
+
+    ret = mongo.db.Users.remove({
+        "_id" : ObjectId(id)
+    })
+
+    return jsonify(str(ret))
